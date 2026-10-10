@@ -1,5 +1,5 @@
 #include "converter.hpp"
-
+// Изменение файла для сравнения времени кэша.
 #include <algorithm>
 #include <cctype>
 #include <fstream>
