@@ -17,7 +17,7 @@ jobs:
     strategy:
       # Часть 4. false: упавшее задание не отменяет остальные ОС.
       # Для эксперимента поставьте true, затем верните false.
-      fail-fast: false
+      fail-fast: true
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
