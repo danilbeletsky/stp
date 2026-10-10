@@ -1,0 +1,89 @@
+name: DataConverter CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      # Часть 4. false: упавшее задание не отменяет остальные ОС.
+      # Для эксперимента поставьте true, затем верните false.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Get the source
+        uses: actions/checkout@v4
+
+      - name: Set up the build environment
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y build-essential cmake
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            echo "macOS runner already provides Clang and CMake"
+          else
+            echo "Windows runner already provides MSVC and CMake"
+          fi
+          cmake --version
+
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ${{ runner.os }}-deps-${{ hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'third_party/**') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Configure CMake
+        shell: bash
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        shell: bash
+        run: |
+          mkdir -p test-results
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            ctest --test-dir build -C Release --output-on-failure \
+              --output-junit test-results/junit.xml \
+              --output-log test-results/ctest.log
+          else
+            ctest --test-dir build --output-on-failure \
+              --output-junit test-results/junit.xml \
+              --output-log test-results/ctest.log
+          fi
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.os }}
+          path: test-results/
+          if-no-files-found: warn
+
+      - name: Upload application
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataconv-${{ matrix.os }}
+          path: |
+            build/dataconv
+            build/dataconv.exe
+            build/Release/dataconv.exe
+            build/x64/Release/dataconv.exe
+          if-no-files-found: warn
